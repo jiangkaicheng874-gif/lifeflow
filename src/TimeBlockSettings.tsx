@@ -378,7 +378,7 @@ export function TimeBlockSettings({
           </div>
           <p className="small muted">
             下一节接在最后一节结束后，自动留出课间。最多 24
-            节，课表文件导入后续接入。
+            节。导入教务课表请使用下方的课表导入入口。
           </p>
           <button className="primary full-width" type="submit">
             {busy ? "正在保存…" : "保存学期与时段"}

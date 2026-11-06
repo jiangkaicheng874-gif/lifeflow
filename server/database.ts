@@ -10,7 +10,7 @@ export function openDatabase(path: string) {
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");
   const version = db.pragma("user_version", { simple: true }) as number;
-  if (version > 3) {
+  if (version > 4) {
     db.close();
     throw new Error("Database schema is newer than this application.");
   }
@@ -38,7 +38,25 @@ export function openDatabase(path: string) {
       db.exec(
         "ALTER TABLE calendar_preferences ADD COLUMN semester_start TEXT",
       );
-    db.pragma("user_version = 3");
+    if (version < 4) {
+      const columns = new Set(
+        (
+          db.prepare("PRAGMA table_info(events)").all() as { name: string }[]
+        ).map((column) => column.name),
+      );
+      if (!columns.has("location"))
+        db.exec(
+          "ALTER TABLE events ADD COLUMN location TEXT NOT NULL DEFAULT ''",
+        );
+      if (!columns.has("notes"))
+        db.exec("ALTER TABLE events ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
+      if (!columns.has("source_key"))
+        db.exec("ALTER TABLE events ADD COLUMN source_key TEXT");
+      db.exec(
+        "CREATE UNIQUE INDEX IF NOT EXISTS events_import_source ON events(owner_id, source_key) WHERE source_key IS NOT NULL",
+      );
+    }
+    db.pragma("user_version = 4");
     if (!db.prepare("SELECT id FROM profiles LIMIT 1").get()) {
       db.prepare("INSERT INTO profiles (id, name) VALUES (?, ?)").run(
         randomUUID(),

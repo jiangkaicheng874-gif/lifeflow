@@ -8,6 +8,7 @@ import {
 import { api, serviceAddress } from "./api";
 import type { CalendarEvent, CalendarPreferences } from "../shared/contracts";
 import { TimeBlockSettings } from "./TimeBlockSettings";
+import { CourseImport } from "./CourseImport";
 import {
   createTimeline,
   toClock,
@@ -257,6 +258,8 @@ export function App() {
       const data = new FormData(event.currentTarget);
       const draft = {
         title: String(data.get("title")).trim(),
+        location: String(data.get("location") || "").trim(),
+        notes: String(data.get("notes") || "").trim(),
         startsAt: localDateTimeToISO(
           String(data.get("startDate") || ""),
           String(data.get("startTime") || ""),
@@ -588,10 +591,31 @@ export function App() {
               <p className="eyebrow">MAKE IT YOURS</p>
               <h1>我的偏好</h1>
               <p className="muted">让 LifeFlow 适合你的使用习惯。</p>
+              <button
+                className="secondary settings-import-shortcut"
+                onClick={() => {
+                  const target = document.getElementById("course-import");
+                  const content = target?.closest(".content-main");
+                  if (target && content)
+                    content.scrollTop +=
+                      target.getBoundingClientRect().top -
+                      content.getBoundingClientRect().top;
+                }}
+              >
+                导入课表
+              </button>
               <TimeBlockSettings
                 value={preferences}
                 onSaved={setPreferences}
                 connected={connected}
+              />
+              <CourseImport
+                preferences={preferences}
+                connected={connected}
+                onImported={(result) => {
+                  setNotice(`已导入 ${result.added} 次安排`);
+                  setRevision((value) => value + 1);
+                }}
               />
               <div className="card settings-card">
                 <h2>外观</h2>
@@ -747,6 +771,24 @@ export function App() {
                 />
               </label>
             </fieldset>
+            <label>
+              地点
+              <input
+                name="location"
+                maxLength={200}
+                defaultValue={editor === "new" ? "" : editor.location}
+                placeholder="例如：教学楼 A201"
+              />
+            </label>
+            <label>
+              备注
+              <textarea
+                name="notes"
+                maxLength={1000}
+                rows={3}
+                defaultValue={editor === "new" ? "" : editor.notes}
+              />
+            </label>
             {formError && (
               <p className="form-error" role="alert">
                 {formError}

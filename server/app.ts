@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { openDatabase } from "./database.js";
+import { BusinessError } from "./errors.js";
+import { courseImportRouter } from "./imports/routes.js";
 import type {
   CalendarEvent,
   CalendarPreferences,
@@ -18,6 +20,8 @@ const draft = z
     title: z.string().trim().min(1).max(120),
     startsAt: instant,
     endsAt: instant,
+    location: z.string().trim().max(200).optional(),
+    notes: z.string().trim().max(1000).optional(),
   })
   .strict();
 const update = draft.extend({ version: z.number().int().positive() });
@@ -61,6 +65,8 @@ interface EventRow {
   version: number;
   created_at: string;
   updated_at: string;
+  location: string;
+  notes: string;
 }
 function event(row: EventRow): CalendarEvent {
   return {
@@ -72,15 +78,9 @@ function event(row: EventRow): CalendarEvent {
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    location: row.location,
+    notes: row.notes,
   };
-}
-class BusinessError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
 }
 export interface AppOptions {
   databasePath: string;
@@ -140,7 +140,7 @@ export function createApp(options: AppOptions) {
     }
     next();
   });
-  app.use(express.json({ limit: "16kb" }));
+  app.use(express.json({ limit: "64kb" }));
   app.get("/api/health", (_req, res) =>
     res.json({ status: "ok", storage: "sqlite", assistant: "not-integrated" }),
   );
@@ -164,6 +164,7 @@ export function createApp(options: AppOptions) {
   app.get("/api/calendar-preferences", (_req, res) =>
     res.json(readPreferences()),
   );
+  app.use("/api/imports", courseImportRouter(db, ownerId, readPreferences));
   app.put("/api/calendar-preferences", (req, res) => {
     const input = timeBlockInput.parse(req.body);
     const blocks = [...input.timeBlocks].sort((a, b) =>
@@ -261,8 +262,18 @@ export function createApp(options: AppOptions) {
         const id = randomUUID();
         const now = new Date().toISOString();
         db.prepare(
-          "INSERT INTO events (id, owner_id, title, starts_at, ends_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ).run(id, ownerId, input.title, input.startsAt, input.endsAt, now, now);
+          "INSERT INTO events (id, owner_id, title, starts_at, ends_at, created_at, updated_at, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ).run(
+          id,
+          ownerId,
+          input.title,
+          input.startsAt,
+          input.endsAt,
+          now,
+          now,
+          input.location ?? "",
+          input.notes ?? "",
+        );
         return event(getEvent(id));
       })
       .immediate();
@@ -277,11 +288,13 @@ export function createApp(options: AppOptions) {
           throw new BusinessError(409, "日程已被修改，请刷新后重试。");
         checkWindow(input, existing.id);
         db.prepare(
-          "UPDATE events SET title = ?, starts_at = ?, ends_at = ?, version = version + 1, updated_at = ? WHERE id = ? AND owner_id = ?",
+          "UPDATE events SET title = ?, starts_at = ?, ends_at = ?, location = ?, notes = ?, version = version + 1, updated_at = ? WHERE id = ? AND owner_id = ?",
         ).run(
           input.title,
           input.startsAt,
           input.endsAt,
+          input.location ?? existing.location,
+          input.notes ?? existing.notes,
           new Date().toISOString(),
           existing.id,
           ownerId,

@@ -439,7 +439,7 @@ input[type="datetime-local"] {
 }
 .secondary {
   background: var(--soft);
-  color: var(--green);
+  color: var(--text);
 }
 .danger {
   background: #a6443e;
@@ -743,7 +743,7 @@ dialog > p {
 .period-feedback {
   font-size: 12px;
   line-height: 1.8;
-  color: var(--green);
+  color: var(--text);
   margin-top: 12px;
 }
 @media (max-width: 374px) {
@@ -973,4 +973,174 @@ dialog > p {
 .today-button {
   min-width: 52px;
   color: var(--text);
+}
+
+.course-import {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.course-import > p {
+  margin-top: 12px;
+}
+.course-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+.import-warning {
+  background: var(--soft);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.8;
+  padding: 12px;
+  margin-top: 14px;
+}
+.import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 20px;
+  font-size: 12px;
+}
+.import-summary span {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.import-unscheduled {
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 16px 0;
+}
+.import-unscheduled p {
+  margin-top: 8px;
+}
+.import-filters {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 8px;
+}
+.import-filters button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: transparent;
+  color: var(--text);
+}
+.import-filters button[aria-pressed="true"] {
+  background: var(--soft);
+}
+.import-editor {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.import-courses {
+  max-height: 480px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.import-course {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.import-course > strong {
+  font-size: 13px;
+  line-height: 1.7;
+  display: block;
+}
+.import-course > p {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+  line-height: 1.7;
+}
+.review-tag {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--text);
+  background: var(--soft);
+  border-radius: 6px;
+  padding: 4px 7px;
+  margin-top: 10px;
+}
+.import-course select {
+  font-size: 11px;
+  padding: 8px 5px;
+}
+.import-check {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 12px 0 3px;
+  min-height: 40px;
+}
+.import-check input {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 1px 0 0;
+  accent-color: var(--green);
+}
+.import-plan {
+  margin-top: 24px;
+}
+.import-plan h3 {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.import-occurrences {
+  max-height: 280px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 12px 0;
+}
+.import-occurrence {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.import-occurrence strong {
+  font-size: 12px;
+}
+.import-occurrence span {
+  color: var(--muted);
+}
+.import-occurrence.conflict span:last-child {
+  color: #b15749;
+}
+textarea {
+  display: block;
+  resize: vertical;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 12px;
+  margin-top: 8px;
+  font: inherit;
+}
+textarea:focus-visible {
+  outline: 2px solid #86ac91;
+  outline-offset: 2px;
+}
+.settings-import-shortcut {
+  margin-bottom: 18px;
 }

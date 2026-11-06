@@ -4,6 +4,10 @@ import type {
   CalendarPreferences,
   EventDraft,
   Health,
+  CoursePreview,
+  CoursePlan,
+  CoursePlanInput,
+  CourseImportResult,
 } from "../shared/contracts";
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -42,6 +46,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 export const api = {
+  coursePreview: (file: File) =>
+    request<CoursePreview>("/imports/neu/preview", {
+      method: "POST",
+      body: file,
+      headers: { "Content-Type": "application/octet-stream" },
+    }),
+  coursePlan: (input: CoursePlanInput) =>
+    request<CoursePlan>("/imports/neu/plan", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  courseCommit: (
+    input: CoursePlanInput & { digest: string; skipConflicts: boolean },
+  ) =>
+    request<CourseImportResult>("/imports/neu/commit", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   health: () => request<Health>("/health"),
   preferences: () => request<CalendarPreferences>("/calendar-preferences"),
   savePreferences: (value: CalendarPreferences) =>

@@ -361,3 +361,43 @@ test("v2 period settings upgrade preserves settings and defaults semester to uns
   );
   await upgraded.close();
 });
+
+test("schedule metadata persists through older edit payloads and v3-to-v4 upgrade", async (t) => {
+  const { mkdtempSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { openDatabase } = await import("./database.js");
+  const folder = mkdtempSync(join(tmpdir(), "lifeflow-v3-"));
+  t.after(() => rmSync(folder, { recursive: true, force: true }));
+  const path = join(folder, "test.sqlite");
+  const firstRun = await fixture(t, { databasePath: path });
+  const created = await (
+    await firstRun.call("/events", "POST", {
+      ...first,
+      location: "测试地点",
+      notes: "测试备注",
+    })
+  ).json();
+  const updated = await (
+    await firstRun.call(`/events/${created.event.id}`, "PUT", {
+      ...first,
+      title: "修改标题",
+      version: 1,
+    })
+  ).json();
+  assert.equal(updated.event.location, "测试地点");
+  assert.equal(updated.event.notes, "测试备注");
+  await firstRun.close();
+  const raw = openDatabase(path);
+  raw.exec(
+    "DROP INDEX events_import_source; ALTER TABLE events DROP COLUMN source_key; ALTER TABLE events DROP COLUMN location; ALTER TABLE events DROP COLUMN notes; PRAGMA user_version = 3;",
+  );
+  raw.close();
+  const upgraded = await fixture(t, { databasePath: path });
+  const events = await (await upgraded.call(day)).json();
+  assert.equal(events.events.length, 1);
+  assert.equal(events.events[0].title, "修改标题");
+  assert.equal(events.events[0].version, 2);
+  assert.equal(events.events[0].location, "");
+  assert.equal(events.events[0].notes, "");
+});
