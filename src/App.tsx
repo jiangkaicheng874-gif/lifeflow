@@ -8,7 +8,19 @@ import {
 import { api, serviceAddress } from "./api";
 import type { CalendarEvent, CalendarPreferences } from "../shared/contracts";
 import { TimeBlockSettings } from "./TimeBlockSettings";
-import { createTimeline, toClock, semesterWeek } from "./calendar-layout";
+import {
+  createTimeline,
+  toClock,
+  semesterWeek,
+  weekNavigationLabel,
+} from "./calendar-layout";
+import { DatePicker } from "./DatePicker";
+import {
+  dateKey,
+  dateFromKey,
+  localParts,
+  localDateTimeToISO,
+} from "./date-utils";
 
 type Page = "today" | "assistant" | "settings";
 function Icon({ name, size = 22 }: { name: string; size?: number }) {
@@ -69,16 +81,6 @@ function Icon({ name, size = 22 }: { name: string; size?: number }) {
       {paths[name]}
     </svg>
   );
-}
-function dateKey(value: Date) {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-}
-function dateFromKey(key: string) {
-  return new Date(`${key}T12:00:00`);
-}
-function localInput(iso: string) {
-  const date = new Date(iso);
-  return `${dateKey(date)}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("zh-CN", {
@@ -255,8 +257,14 @@ export function App() {
       const data = new FormData(event.currentTarget);
       const draft = {
         title: String(data.get("title")).trim(),
-        startsAt: new Date(String(data.get("startsAt"))).toISOString(),
-        endsAt: new Date(String(data.get("endsAt"))).toISOString(),
+        startsAt: localDateTimeToISO(
+          String(data.get("startDate") || ""),
+          String(data.get("startTime") || ""),
+        ),
+        endsAt: localDateTimeToISO(
+          String(data.get("endDate") || ""),
+          String(data.get("endTime") || ""),
+        ),
       };
       if (editor && editor !== "new")
         await api.update(editor.id, draft, editor.version);
@@ -308,22 +316,25 @@ export function App() {
           {page === "today" && (
             <section className="calendar-screen" aria-label="今日安排周时间表">
               <header className="calendar-topbar">
-                <label className="month-picker">
-                  <strong>{weekTitle}</strong>
-                  <span>
-                    {day.getFullYear()}.{week[0].getMonth() + 1}.
-                    {week[0].getDate()} — {week[6].getMonth() + 1}.
-                    {week[6].getDate()}
-                  </span>
-                  <input
-                    aria-label="跳转日期"
-                    type="date"
-                    value={selected}
-                    onChange={(event) => {
-                      if (event.target.value) setSelected(event.target.value);
-                    }}
-                  />
-                </label>
+                <DatePicker
+                  label="跳转日期"
+                  value={selected}
+                  onChange={setSelected}
+                  trigger={
+                    <>
+                      <strong>{weekTitle}</strong>
+                      <span>
+                        {week[0].getFullYear()}.{week[0].getMonth() + 1}.
+                        {week[0].getDate()} —{" "}
+                        {week[0].getFullYear() !== week[6].getFullYear()
+                          ? `${week[6].getFullYear()}.`
+                          : ""}
+                        {week[6].getMonth() + 1}.{week[6].getDate()}{" "}
+                        <span aria-hidden="true">⌄</span>
+                      </span>
+                    </>
+                  }
+                />
                 <div className="calendar-actions">
                   <button
                     className="icon-button"
@@ -334,9 +345,21 @@ export function App() {
                   </button>
                   <button
                     className="today-button"
+                    title={
+                      currentWeek.isCurrent ? "当前为本周" : "点击返回本周"
+                    }
+                    aria-label={
+                      currentWeek.isCurrent
+                        ? "本周"
+                        : `${weekNavigationLabel(preferences.semesterStart, selected, dateKey(new Date()))}，返回本周`
+                    }
                     onClick={() => setSelected(dateKey(new Date()))}
                   >
-                    本周
+                    {weekNavigationLabel(
+                      preferences.semesterStart,
+                      selected,
+                      dateKey(new Date()),
+                    )}
                   </button>
                   <button
                     className="icon-button"
@@ -678,32 +701,52 @@ export function App() {
                 defaultValue={editor === "new" ? "" : editor.title}
               />
             </label>
-            <label>
-              开始时间
-              <input
-                name="startsAt"
-                type="datetime-local"
-                required
+            <fieldset className="event-time-group" disabled={busy}>
+              <legend>开始</legend>
+              <DatePicker
+                label="开始日期"
+                name="startDate"
                 defaultValue={
-                  editor === "new"
-                    ? `${selected}T${preferences.timeBlocks[0]?.startTime || "08:00"}`
-                    : localInput(editor.startsAt)
+                  editor === "new" ? selected : localParts(editor.startsAt).date
                 }
               />
-            </label>
-            <label>
-              结束时间
-              <input
-                name="endsAt"
-                type="datetime-local"
-                required
+              <label>
+                开始时间
+                <input
+                  name="startTime"
+                  type="time"
+                  required
+                  defaultValue={
+                    editor === "new"
+                      ? preferences.timeBlocks[0]?.startTime || "08:00"
+                      : localParts(editor.startsAt).time
+                  }
+                />
+              </label>
+            </fieldset>
+            <fieldset className="event-time-group" disabled={busy}>
+              <legend>结束</legend>
+              <DatePicker
+                label="结束日期"
+                name="endDate"
                 defaultValue={
-                  editor === "new"
-                    ? `${selected}T${preferences.timeBlocks[0]?.endTime || "09:00"}`
-                    : localInput(editor.endsAt)
+                  editor === "new" ? selected : localParts(editor.endsAt).date
                 }
               />
-            </label>
+              <label>
+                结束时间
+                <input
+                  name="endTime"
+                  type="time"
+                  required
+                  defaultValue={
+                    editor === "new"
+                      ? preferences.timeBlocks[0]?.endTime || "09:00"
+                      : localParts(editor.endsAt).time
+                  }
+                />
+              </label>
+            </fieldset>
             {formError && (
               <p className="form-error" role="alert">
                 {formError}

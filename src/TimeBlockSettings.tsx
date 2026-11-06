@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { CalendarPreferences, TimeBlock } from "../shared/contracts";
 import { api } from "./api";
+import { DatePicker } from "./DatePicker";
 import {
   automaticEnd,
   generateTimeBlocks,
@@ -137,16 +138,13 @@ export function TimeBlockSettings({
       </p>
       <form ref={form} onSubmit={save}>
         <fieldset disabled={busy || !connected}>
-          <label>
-            学期开始日期
-            <input
-              key={`semester-${value.version}`}
-              name="semesterStart"
-              aria-label="学期开始日期"
-              type="date"
-              defaultValue={value.semesterStart || ""}
-            />
-          </label>
+          <DatePicker
+            key={`semester-${value.version}`}
+            label="学期开始日期"
+            name="semesterStart"
+            defaultValue={value.semesterStart || ""}
+            optional
+          />
           <p className="small muted">开学日期所在周为第 1 周，每周一至周日。</p>
           <div className="period-generator">
             <h3>一键生成节次</h3>

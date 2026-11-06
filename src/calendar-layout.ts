@@ -35,6 +35,23 @@ export function semesterWeek(
   return { number, isCurrent, beforeTerm: number !== null && number < 1 };
 }
 
+export function weekNavigationLabel(
+  start: string | null,
+  selected: string,
+  today: string,
+) {
+  const week = semesterWeek(start, selected, today);
+  if (week.isCurrent) return "本周";
+  if (week.number !== null)
+    return week.beforeTerm ? "开学前" : `第${week.number}周`;
+  const offset = Math.round(
+    (weekMonday(selected) - weekMonday(today)) / (7 * 86400000),
+  );
+  if (offset === -1) return "上周";
+  if (offset === 1) return "下周";
+  return `${Math.abs(offset)}周${offset > 0 ? "后" : "前"}`;
+}
+
 // Course periods define the scale. Actual events extend it only as far as needed.
 // Gaps are compressed but remain real time ranges; an event in a gap is visible.
 export function createTimeline(blocks: TimeBlock[], ranges: MinuteRange[]) {

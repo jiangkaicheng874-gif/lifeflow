@@ -10,6 +10,8 @@
 
 尚未实现：AI 调用、任务、饮食、月视图、PWA Service Worker、云端登录／同步、正式图标。无模拟 AI 回复或预置业务日程。左侧按自定义课程节次显示时间，默认从第一节开始；有课前／课后安排时自动扩展。支持学期周数与一键生成节次；颜色用于区分记录，不代表尚未实现的分类。
 
+日期改为独立图形月历；日程开始／结束日期和时间分别选择，支持跨日。周箭头中央随选中周显示本周或第 n 周，点击返回本周。教务课表导入首站东北大学，目前仅完成调查，爬取、文件解析与批量导入尚未开放，见 [调查记录](outputs/docs/SCHOOL_IMPORT.md)。
+
 [当前需求](outputs/PRD.md) · [连接与演进](outputs/docs/ARCHITECTURE.md) · [测试记录](outputs/docs/TEST_REPORT.md) · [开发记录](outputs/docs/DEVELOPMENT.md)
 
 ## 设置课程时段
