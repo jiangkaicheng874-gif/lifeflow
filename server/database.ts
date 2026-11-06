@@ -10,7 +10,7 @@ export function openDatabase(path: string) {
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");
   const version = db.pragma("user_version", { simple: true }) as number;
-  if (version > 1) {
+  if (version > 3) {
     db.close();
     throw new Error("Database schema is newer than this application.");
   }
@@ -27,8 +27,18 @@ export function openDatabase(path: string) {
         CHECK (starts_at < ends_at)
       );
       CREATE INDEX IF NOT EXISTS events_owner_time ON events(owner_id, starts_at, ends_at);
-      PRAGMA user_version = 1;
+      CREATE TABLE IF NOT EXISTS calendar_preferences (
+        owner_id TEXT PRIMARY KEY REFERENCES profiles(id),
+        time_blocks TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
+    if (version < 3)
+      db.exec(
+        "ALTER TABLE calendar_preferences ADD COLUMN semester_start TEXT",
+      );
+    db.pragma("user_version = 3");
     if (!db.prepare("SELECT id FROM profiles LIMIT 1").get()) {
       db.prepare("INSERT INTO profiles (id, name) VALUES (?, ?)").run(
         randomUUID(),

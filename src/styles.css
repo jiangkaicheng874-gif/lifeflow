@@ -146,7 +146,7 @@ p {
 }
 .calendar-weekdays {
   display: grid;
-  grid-template-columns: 38px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 54px repeat(7, minmax(0, 1fr));
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
@@ -201,8 +201,7 @@ p {
 .time-grid {
   position: relative;
   display: grid;
-  grid-template-columns: 38px repeat(7, minmax(0, 1fr));
-  height: 1536px;
+  grid-template-columns: 54px repeat(7, minmax(0, 1fr));
   min-width: 0;
 }
 .time-axis {
@@ -211,29 +210,10 @@ p {
   font-size: 8px;
   font-variant-numeric: tabular-nums;
 }
-.time-axis span {
-  position: absolute;
-  right: 5px;
-  transform: translateY(-50%);
-}
-.time-axis span:first-child {
-  transform: translateY(0);
-}
 .time-day {
   position: relative;
   min-width: 0;
-  border-left: 1px solid var(--border);
-  background: repeating-linear-gradient(
-    to bottom,
-    var(--border) 0px,
-    var(--border) 1px,
-    transparent 1px,
-    transparent 32px,
-    #e9edea55 32px,
-    #e9edea55 33px,
-    transparent 33px,
-    transparent 64px
-  );
+  z-index: 1;
 }
 .selected-time-day {
   background-color: var(--selected-column, #f4f8f333);
@@ -578,7 +558,7 @@ dialog > p {
   }
   .calendar-weekdays,
   .time-grid {
-    grid-template-columns: 34px repeat(7, minmax(0, 1fr));
+    grid-template-columns: 50px repeat(7, minmax(0, 1fr));
   }
   .block-title {
     font-size: 9px;
@@ -600,4 +580,256 @@ dialog > p {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     --selected-column: #34513a25;
   }
+}
+
+/* Teaching periods are the reference; blank time is not a 24-hour scaffold. */
+.calendar-weekdays {
+  border-bottom: 0;
+}
+.time-axis {
+  z-index: 2;
+  background: var(--bg);
+}
+.time-band {
+  position: absolute;
+  left: 54px;
+  right: 0;
+  background: var(--soft);
+  opacity: 0.32;
+  pointer-events: none;
+  border-radius: 5px;
+}
+.time-band.alternate {
+  opacity: 0.16;
+}
+.time-band.gap {
+  background: transparent;
+}
+.period-axis-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 5px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+}
+.period-axis-label strong {
+  font-size: 10px;
+  font-weight: 500;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.period-axis-label span {
+  font-size: 8px;
+  line-height: 1.1;
+}
+.period-axis-label.gap {
+  color: var(--muted);
+}
+.period-settings-trigger {
+  min-height: 65px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: transparent;
+}
+.set-period-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--soft);
+}
+.calendar-setup {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  padding: 25px;
+  text-align: center;
+  color: var(--muted);
+}
+.calendar-setup h2 {
+  font-size: 15px;
+  color: var(--text);
+}
+.calendar-setup p {
+  font-size: 12px;
+  line-height: 1.9;
+}
+.time-block-settings {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.time-block-settings > p {
+  margin-top: 10px;
+}
+.time-block-settings fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.period-empty {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  padding: 18px 0 8px;
+}
+.period-editor {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.period-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.period-editor-title label {
+  flex: 1;
+  margin: 0;
+}
+.remove-period {
+  min-height: 44px;
+  background: transparent;
+  color: #a15b4d;
+  padding: 4px;
+  font-size: 11px;
+  margin-top: 20px;
+}
+.period-times {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+.period-times label {
+  margin: 12px 0 0;
+}
+.period-times > span {
+  margin-top: 30px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.period-times input {
+  padding: 8px;
+  font-size: 13px;
+}
+.period-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 16px 0;
+}
+.text-button {
+  min-height: 44px;
+  background: transparent;
+  color: var(--green);
+  font-size: 11px;
+  padding: 8px;
+}
+.period-feedback {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--green);
+  margin-top: 12px;
+}
+@media (max-width: 374px) {
+  .time-band {
+    left: 50px;
+  }
+}
+
+.period-generator {
+  margin-top: 22px;
+  padding: 15px 13px;
+  background: var(--soft);
+  border-radius: 13px;
+}
+.period-generator h3,
+.period-list-heading {
+  font-size: 13px;
+  font-weight: 550;
+}
+.generator-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.generator-pair label,
+.session-counts label {
+  font-size: 10px;
+  margin: 12px 0;
+}
+.generator-pair input {
+  padding: 8px;
+  font-size: 13px;
+}
+.session-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.session-counts input {
+  padding: 8px;
+  font-size: 13px;
+}
+.generator-advanced {
+  margin: 4px 0 13px;
+}
+.generator-advanced summary {
+  font-size: 11px;
+  color: var(--green);
+  cursor: pointer;
+  min-height: 32px;
+  padding: 8px 0;
+}
+.generator-advanced > label {
+  font-size: 10px;
+  margin: 8px 0;
+}
+.generated-preview {
+  margin-top: 15px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.generated-preview h4 {
+  font-size: 12px;
+  font-weight: 550;
+  margin: 0 0 10px;
+}
+.generated-list {
+  display: grid;
+  gap: 8px;
+  max-height: 230px;
+  overflow: auto;
+  margin-bottom: 13px;
+}
+.generated-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+.generated-list strong {
+  font-weight: 500;
+}
+.generated-list span {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.period-list-heading {
+  margin-top: 24px;
 }

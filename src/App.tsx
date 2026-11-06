@@ -6,7 +6,9 @@ import {
   type ReactNode,
 } from "react";
 import { api, serviceAddress } from "./api";
-import type { CalendarEvent } from "../shared/contracts";
+import type { CalendarEvent, CalendarPreferences } from "../shared/contracts";
+import { TimeBlockSettings } from "./TimeBlockSettings";
+import { createTimeline, toClock, semesterWeek } from "./calendar-layout";
 
 type Page = "today" | "assistant" | "settings";
 function Icon({ name, size = 22 }: { name: string; size?: number }) {
@@ -129,6 +131,12 @@ function Modal({
 export function App() {
   const [page, setPage] = useState<Page>("today");
   const calendarScroll = useRef<HTMLDivElement>(null);
+  const [calendarHeight, setCalendarHeight] = useState(600);
+  const [preferences, setPreferences] = useState<CalendarPreferences>({
+    timeBlocks: [],
+    version: 0,
+    semesterStart: null,
+  });
   const [selected, setSelected] = useState(dateKey(new Date()));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,8 +155,14 @@ export function App() {
   weekAnchor.setDate(weekAnchor.getDate() - ((weekAnchor.getDay() + 6) % 7));
   const weekAnchorKey = dateKey(weekAnchor);
   useEffect(() => {
-    if (page === "today" && calendarScroll.current)
-      calendarScroll.current.scrollTop = 8 * 64 - 8;
+    const element = calendarScroll.current;
+    if (page !== "today" || !element) return;
+    element.scrollTop = 0;
+    const observer = new ResizeObserver(() =>
+      setCalendarHeight(element.clientHeight),
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
   }, [page]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -165,10 +179,12 @@ export function App() {
     Promise.all([
       api.health(),
       api.events(start.toISOString(), end.toISOString()),
+      api.preferences(),
     ])
-      .then(([, result]) => {
+      .then(([, result, settings]) => {
         if (active) {
           setEvents(result.events);
+          setPreferences(settings);
           setConnected(true);
         }
       })
@@ -191,6 +207,37 @@ export function App() {
     value.setDate(value.getDate() - ((day.getDay() + 6) % 7) + offset);
     return value;
   });
+  const ranges = week.flatMap((value) => {
+    const key = dateKey(value);
+    const start = new Date(`${key}T00:00:00`);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return eventsForDay(events, key).map((item) => {
+      const begin = new Date(item.startsAt);
+      const finish = new Date(item.endsAt);
+      return {
+        from: begin < start ? 0 : begin.getHours() * 60 + begin.getMinutes(),
+        to: finish >= end ? 1440 : finish.getHours() * 60 + finish.getMinutes(),
+      };
+    });
+  });
+  const currentWeek = semesterWeek(
+    preferences.semesterStart,
+    selected,
+    dateKey(new Date()),
+  );
+  const weekTitle =
+    currentWeek.number === null
+      ? currentWeek.isCurrent
+        ? "本周"
+        : "所选周"
+      : `${currentWeek.beforeTerm ? "开学前" : `第${currentWeek.number}周`}${currentWeek.isCurrent ? "（本周）" : ""}`;
+  const timeline = createTimeline(preferences.timeBlocks, ranges);
+  // 64px per period unless the full set needs to fit within about 1.5 viewports.
+  // A small set is never stretched to fill blank screen space.
+  const unitHeight = timeline.total
+    ? Math.min(64, (calendarHeight * 1.5) / timeline.total)
+    : 64;
   function moveDay(offset: number) {
     const next = new Date(day);
     next.setDate(next.getDate() + offset);
@@ -262,12 +309,11 @@ export function App() {
             <section className="calendar-screen" aria-label="今日安排周时间表">
               <header className="calendar-topbar">
                 <label className="month-picker">
-                  <strong>
-                    {day.getFullYear()}年{day.getMonth() + 1}月
-                  </strong>
+                  <strong>{weekTitle}</strong>
                   <span>
-                    {week[0].getMonth() + 1}.{week[0].getDate()} —{" "}
-                    {week[6].getMonth() + 1}.{week[6].getDate()}
+                    {day.getFullYear()}.{week[0].getMonth() + 1}.
+                    {week[0].getDate()} — {week[6].getMonth() + 1}.
+                    {week[6].getDate()}
                   </span>
                   <input
                     aria-label="跳转日期"
@@ -290,7 +336,7 @@ export function App() {
                     className="today-button"
                     onClick={() => setSelected(dateKey(new Date()))}
                   >
-                    今天
+                    本周
                   </button>
                   <button
                     className="icon-button"
@@ -309,10 +355,14 @@ export function App() {
                 </div>
               </header>
               <div className="calendar-weekdays">
-                <span className="timezone-label">
-                  UTC{day.getTimezoneOffset() <= 0 ? "+" : ""}
-                  {-day.getTimezoneOffset() / 60}
-                </span>
+                <button
+                  className="period-settings-trigger"
+                  onClick={() => setPage("settings")}
+                  aria-label="自定义课程时段"
+                  title="自定义课程时段"
+                >
+                  <Icon name="clock" size={17} />
+                </button>
                 {week.map((value) => (
                   <button
                     key={dateKey(value)}
@@ -349,80 +399,143 @@ export function App() {
                   )}
                 </div>
               )}
+              {!preferences.timeBlocks.length && !loading && !error && (
+                <button
+                  className="set-period-banner"
+                  onClick={() => setPage("settings")}
+                >
+                  设置课程时段，让日历按节次排列 <Icon name="right" size={13} />
+                </button>
+              )}
               <div
                 className="time-scroll"
                 ref={calendarScroll}
                 tabIndex={0}
-                aria-label="按小时浏览一周安排"
+                aria-label="按课程时段浏览一周安排"
               >
-                <div className="time-grid">
-                  <div className="time-axis">
-                    {Array.from({ length: 24 }, (_, hour) => (
-                      <span key={hour} style={{ top: hour * 64 }}>
-                        {String(hour).padStart(2, "0")}:00
-                      </span>
+                {timeline.segments.length > 0 ? (
+                  <div
+                    className="time-grid"
+                    style={{ height: timeline.total * unitHeight }}
+                  >
+                    {timeline.segments.map((segment, index) => (
+                      <div
+                        key={`${segment.from}-${segment.to}`}
+                        aria-hidden="true"
+                        className={`time-band ${segment.kind} ${index % 2 ? "alternate" : ""}`}
+                        style={{
+                          top: segment.top * unitHeight,
+                          height: segment.size * unitHeight,
+                        }}
+                      />
                     ))}
-                  </div>
-                  {week.map((value) => {
-                    const key = dateKey(value);
-                    const start = new Date(`${key}T00:00:00`);
-                    const end = new Date(start);
-                    end.setDate(end.getDate() + 1);
-                    return (
-                      <section
-                        key={key}
-                        className={`time-day ${key === selected ? "selected-time-day" : ""}`}
-                        aria-label={`${value.toLocaleDateString("zh-CN")}日程`}
-                      >
-                        {!loading &&
-                          !error &&
-                          eventsForDay(events, key).map((item) => {
-                            const begin = new Date(item.startsAt);
-                            const finish = new Date(item.endsAt);
-                            const from =
-                              begin < start
-                                ? 0
-                                : begin.getHours() * 60 + begin.getMinutes();
-                            const to =
-                              finish >= end
-                                ? 1440
-                                : finish.getHours() * 60 + finish.getMinutes();
-                            return (
-                              <button
-                                key={item.id}
-                                className={`schedule-block ${eventColor(item.id)}`}
-                                style={{
-                                  top: (from / 60) * 64,
-                                  height: Math.max(16, ((to - from) / 60) * 64),
-                                }}
-                                aria-label={`${item.title}，${begin.toLocaleString("zh-CN")} 至 ${finish.toLocaleString("zh-CN")}，查看或编辑`}
-                                onClick={() => {
-                                  setSelected(key);
-                                  openEditor(item);
-                                }}
-                              >
-                                <span className="block-title">
-                                  {item.title}
-                                </span>
-                                <span className="block-time">
-                                  {begin < start
-                                    ? "续"
-                                    : formatTime(item.startsAt)}
-                                </span>
-                                {to - from >= 60 && (
-                                  <span className="block-time">
-                                    {finish >= end
-                                      ? "次日"
-                                      : formatTime(item.endsAt)}
+                    <div className="time-axis">
+                      {timeline.segments.map((segment) => (
+                        <div
+                          key={`${segment.from}-${segment.to}`}
+                          className={`period-axis-label ${segment.kind}`}
+                          style={{
+                            top: segment.top * unitHeight,
+                            height: segment.size * unitHeight,
+                          }}
+                        >
+                          {segment.size * unitHeight >= 28 && (
+                            <>
+                              <strong>{segment.label}</strong>
+                              <span>{toClock(segment.from)}</span>
+                              {segment.size * unitHeight >= 46 && (
+                                <span>{toClock(segment.to)}</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {week.map((value) => {
+                      const key = dateKey(value);
+                      const start = new Date(`${key}T00:00:00`);
+                      const end = new Date(start);
+                      end.setDate(end.getDate() + 1);
+                      return (
+                        <section
+                          key={key}
+                          className={`time-day ${key === selected ? "selected-time-day" : ""}`}
+                          aria-label={`${value.toLocaleDateString("zh-CN")}日程`}
+                        >
+                          {!loading &&
+                            !error &&
+                            eventsForDay(events, key).map((item) => {
+                              const begin = new Date(item.startsAt);
+                              const finish = new Date(item.endsAt);
+                              const from =
+                                begin < start
+                                  ? 0
+                                  : begin.getHours() * 60 + begin.getMinutes();
+                              const to =
+                                finish >= end
+                                  ? 1440
+                                  : finish.getHours() * 60 +
+                                    finish.getMinutes();
+                              const top = timeline.position(from) * unitHeight;
+                              const height =
+                                (timeline.position(to) -
+                                  timeline.position(from)) *
+                                unitHeight;
+                              return (
+                                <button
+                                  key={item.id}
+                                  className={`schedule-block ${eventColor(item.id)}`}
+                                  style={{ top, height: Math.max(8, height) }}
+                                  aria-label={`${item.title}，${begin.toLocaleString("zh-CN")} 至 ${finish.toLocaleString("zh-CN")}，查看或编辑`}
+                                  onClick={() => {
+                                    setSelected(key);
+                                    openEditor(item);
+                                  }}
+                                >
+                                  <span className="block-title">
+                                    {item.title}
                                   </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                      </section>
-                    );
-                  })}
-                </div>
+                                  {height >= 34 && (
+                                    <span className="block-time">
+                                      {begin < start
+                                        ? "续"
+                                        : formatTime(item.startsAt)}
+                                    </span>
+                                  )}
+                                  {height >= 60 && (
+                                    <span className="block-time">
+                                      {finish >= end
+                                        ? "次日"
+                                        : formatTime(item.endsAt)}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  !loading &&
+                  !error && (
+                    <div className="calendar-setup">
+                      <Icon name="calendar" size={32} />
+                      <h2>从你的第一节开始</h2>
+                      <p>
+                        设置学校的节次时间。
+                        <br />
+                        有更早的安排时，日历会自动向上补出时间。
+                      </p>
+                      <button
+                        className="secondary"
+                        onClick={() => setPage("settings")}
+                      >
+                        设置课程时段
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
             </section>
           )}
@@ -452,6 +565,11 @@ export function App() {
               <p className="eyebrow">MAKE IT YOURS</p>
               <h1>我的偏好</h1>
               <p className="muted">让 LifeFlow 适合你的使用习惯。</p>
+              <TimeBlockSettings
+                value={preferences}
+                onSaved={setPreferences}
+                connected={connected}
+              />
               <div className="card settings-card">
                 <h2>外观</h2>
                 <label>
@@ -568,7 +686,7 @@ export function App() {
                 required
                 defaultValue={
                   editor === "new"
-                    ? `${selected}T09:00`
+                    ? `${selected}T${preferences.timeBlocks[0]?.startTime || "08:00"}`
                     : localInput(editor.startsAt)
                 }
               />
@@ -581,7 +699,7 @@ export function App() {
                 required
                 defaultValue={
                   editor === "new"
-                    ? `${selected}T10:00`
+                    ? `${selected}T${preferences.timeBlocks[0]?.endTime || "09:00"}`
                     : localInput(editor.endsAt)
                 }
               />

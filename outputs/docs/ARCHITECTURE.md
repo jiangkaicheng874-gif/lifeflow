@@ -44,3 +44,11 @@ SQLite 可评估用于持久磁盘上的单实例；多实例／并发增长时�
 以上尚未在 iPhone 验证。
 
 官方依据：[Capacitor 环境](https://capacitorjs.com/docs/getting-started/environment-setup)、[同步](https://capacitorjs.com/docs/getting-started)、[Apple 证书](https://support.apple.com/en-gb/102390)、[SQLite](https://www.sqlite.org/whentouse.html)、[Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)。
+
+## 课程布局与持久化补充
+
+GET／PUT /api/calendar-preferences 保存每个本地所有者的学期日期和时间块；严格参数校验，UUID 唯一、时间合法、排序且不重叠，以 version 防止旧页面覆盖。SQLite schema v3，事务升级旧版日程／时段设置，保留原数据。时段修改不平移已有日程。
+
+src/calendar-layout.ts 为纯计算模块：学期周数按日期与周一边界计算，课程轴采用节次与压缩间隙的分段映射；实际事件触发课前／课后扩展，休息内安排也可显示。它不创建业务日程。src/time-block-generator.ts 只生成框架草稿；用户填写午休／晚休分钟数后按前段结束顺延，不固定下午／晚上钟点。界面读原生表单当前值，避免依赖单一日期／时间 change 事件；真实 Safari 键盘／选择器仍须真机验证。
+
+当前持久化时间框架和学期，不存生成器的节数、休息等独立参数。未来导入应先映射星期／周次／节次到日程，校验并预览后应用；本轮没有实现课表文件导入或重复课程引擎。

@@ -1,5 +1,10 @@
 import { Capacitor } from "@capacitor/core";
-import type { CalendarEvent, EventDraft, Health } from "../shared/contracts";
+import type {
+  CalendarEvent,
+  CalendarPreferences,
+  EventDraft,
+  Health,
+} from "../shared/contracts";
 
 const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 export const native = Capacitor.isNativePlatform();
@@ -38,6 +43,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export const api = {
   health: () => request<Health>("/health"),
+  preferences: () => request<CalendarPreferences>("/calendar-preferences"),
+  savePreferences: (value: CalendarPreferences) =>
+    request<CalendarPreferences>("/calendar-preferences", {
+      method: "PUT",
+      body: JSON.stringify(value),
+    }),
   events: (from: string, to: string) =>
     request<{ events: CalendarEvent[] }>(
       `/events?${new URLSearchParams({ from, to })}`,

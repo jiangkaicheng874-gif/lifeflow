@@ -18,3 +18,15 @@ export interface Health {
   storage: "sqlite";
   assistant: "not-integrated";
 }
+
+export interface TimeBlock {
+  id: string;
+  label: string;
+  startTime: string;
+  endTime: string;
+}
+export interface CalendarPreferences {
+  timeBlocks: TimeBlock[];
+  version: number;
+  semesterStart: string | null;
+}

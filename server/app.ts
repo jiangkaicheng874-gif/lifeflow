@@ -4,7 +4,10 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { openDatabase } from "./database.js";
-import type { CalendarEvent } from "../shared/contracts.js";
+import type {
+  CalendarEvent,
+  CalendarPreferences,
+} from "../shared/contracts.js";
 
 const instant = z
   .string()
@@ -19,6 +22,36 @@ const draft = z
   .strict();
 const update = draft.extend({ version: z.number().int().positive() });
 const dayRange = z.object({ from: instant, to: instant }).strict();
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const timeBlockInput = z
+  .object({
+    version: z.number().int().nonnegative(),
+    semesterStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine((value) => {
+        const date = new Date(`${value}T00:00:00Z`);
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date.toISOString().slice(0, 10) === value
+        );
+      })
+      .nullable()
+      .optional(),
+    timeBlocks: z
+      .array(
+        z
+          .object({
+            id: z.string().uuid(),
+            label: z.string().trim().min(1).max(16),
+            startTime: clockTime,
+            endTime: clockTime,
+          })
+          .strict(),
+      )
+      .max(24),
+  })
+  .strict();
 interface EventRow {
   id: string;
   owner_id: string;
@@ -111,6 +144,72 @@ export function createApp(options: AppOptions) {
   app.get("/api/health", (_req, res) =>
     res.json({ status: "ok", storage: "sqlite", assistant: "not-integrated" }),
   );
+
+  function readPreferences(): CalendarPreferences {
+    const row = db
+      .prepare(
+        "SELECT time_blocks, version, semester_start FROM calendar_preferences WHERE owner_id = ?",
+      )
+      .get(ownerId) as
+      | { time_blocks: string; version: number; semester_start: string | null }
+      | undefined;
+    return row
+      ? {
+          timeBlocks: JSON.parse(row.time_blocks),
+          version: row.version,
+          semesterStart: row.semester_start,
+        }
+      : { timeBlocks: [], version: 0, semesterStart: null };
+  }
+  app.get("/api/calendar-preferences", (_req, res) =>
+    res.json(readPreferences()),
+  );
+  app.put("/api/calendar-preferences", (req, res) => {
+    const input = timeBlockInput.parse(req.body);
+    const blocks = [...input.timeBlocks].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime),
+    );
+    if (new Set(blocks.map((block) => block.id)).size !== blocks.length)
+      throw new BusinessError(400, "课程时段标识不能重复。");
+    for (const [index, block] of blocks.entries()) {
+      if (block.endTime <= block.startTime)
+        throw new BusinessError(
+          400,
+          "每个时段的结束时间必须晚于开始时间，跨午夜请分开设置。",
+        );
+      if (index && blocks[index - 1].endTime > block.startTime)
+        throw new BusinessError(
+          400,
+          "课程时段不能重叠，请保留正确的课间时间。",
+        );
+    }
+    const result = db
+      .transaction(() => {
+        const current = readPreferences();
+        if (current.version !== input.version)
+          throw new BusinessError(409, "时段设置已更新，请重新连接后再编辑。");
+        const next = {
+          timeBlocks: blocks,
+          version: current.version + 1,
+          semesterStart:
+            input.semesterStart === undefined
+              ? current.semesterStart
+              : input.semesterStart,
+        };
+        db.prepare(
+          "INSERT INTO calendar_preferences (owner_id, time_blocks, version, updated_at, semester_start) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET time_blocks = excluded.time_blocks, version = excluded.version, updated_at = excluded.updated_at, semester_start = excluded.semester_start",
+        ).run(
+          ownerId,
+          JSON.stringify(blocks),
+          next.version,
+          new Date().toISOString(),
+          next.semesterStart,
+        );
+        return next;
+      })
+      .immediate();
+    res.json(result);
+  });
 
   function getEvent(id: string) {
     const row = db
