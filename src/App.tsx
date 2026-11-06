@@ -148,7 +148,7 @@ export function App() {
   const weekAnchorKey = dateKey(weekAnchor);
   useEffect(() => {
     if (page === "today" && calendarScroll.current)
-      calendarScroll.current.scrollTop = 8 * 64;
+      calendarScroll.current.scrollTop = 8 * 64 - 8;
   }, [page]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
